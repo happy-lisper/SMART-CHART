@@ -1,0 +1,10 @@
+goog.addDependency("base.js", ['goog'], []);
+goog.addDependency("../cljs/core.js", ['cljs.core'], ['goog.string', 'goog.object', 'goog.string.StringBuffer', 'goog.array']);
+goog.addDependency("../jquery.inc.js", ['cljsjs.jquery'], []);
+goog.addDependency("../cljs/reader.js", ['cljs.reader'], ['goog.string', 'cljs.core', 'goog.string.StringBuffer']);
+goog.addDependency("../tailrecursion/priority_map.js", ['tailrecursion.priority_map'], ['cljs.core', 'cljs.reader']);
+goog.addDependency("../tailrecursion/javelin.js", ['tailrecursion.javelin'], ['cljs.core', 'tailrecursion.priority_map']);
+goog.addDependency("../clojure/string.js", ['clojure.string'], ['goog.string', 'cljs.core', 'goog.string.StringBuffer']);
+goog.addDependency("../tailrecursion/hoplon.js", ['tailrecursion.hoplon'], ['cljsjs.jquery', 'cljs.core', 'tailrecursion.javelin', 'clojure.string', 'cljs.reader']);
+goog.addDependency("../tailrecursion/hoplon/app_pages/_index_DOT_html.js", ['tailrecursion.hoplon.app_pages._index_DOT_html'], ['tailrecursion.hoplon', 'cljs.core', 'tailrecursion.javelin']);
+goog.addDependency("../boot/cljs/index/html.js", ['boot.cljs.index.html'], ['cljs.core', 'tailrecursion.hoplon.app_pages._index_DOT_html']);
