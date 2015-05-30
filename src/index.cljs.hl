@@ -1,0 +1,200 @@
+;; Copyright (c) AndyL/@coreasync. All rights reserved.
+;; Under https://www.eclipse.org/legal/epl-v10.html
+
+(page "index.html")
+
+;;TODO how to make a clojar
+
+(defn amcharts-chart[title x-category y-categories values]
+  (clj->js {
+            "titles" [{"text" title "size" 15}]
+            "type" "serial"
+            ;;"theme" "light"
+            "sequencedAnimation" false
+            "legend"
+            {
+             "maxColumns" 1
+             "position" "right"
+             "useGraphSettings" true
+             }
+            "dataProvider" values
+            "valueAxes" [{"stackType" "regular" "axisAlpha" 0.3 "gridAlpha" 0 "dashLength" 15}]
+            "graphs" (into [] (for [c y-categories] {
+              "fillAlphas" 1
+              "title" (str "Category:" c)
+              "type" "column"
+              "valueField" c
+              "lineThickness" 0
+              }))
+            "categoryField" x-category
+            "categoryAxis" {"gridPosition" "start" "labelRotation" 15}
+             })
+  )
+
+
+(defelem chart [{:keys [title value x-category y-categories]
+                 :as   attrs}]
+  (let [div-id     (str (gensym))
+        elem-attrs (dissoc attrs :title)]
+    (with-let [elem (div (assoc elem-attrs :id div-id))]
+      (with-init!
+        (let [params (js-obj "id" div-id)
+              update-graph #(let [AmSerialChart (.-AmSerialChart js/AmCharts)
+                                  chart1 (AmSerialChart.)
+                                  ]
+                              (.extend js/AmCharts chart1 (amcharts-chart title %1 %2 %3))
+                              (.write chart1 div-id)
+                              )
+              ]
+          (cell= (update-graph x-category y-categories value))
+          )
+        )
+      )
+    )
+  )
+
+;;
+;;;; input data
+;;
+
+(def months (range 1 13))
+(def years (range 2010 2015))
+
+(def dates (vec (flatten (for [y years] (for [m months] (str y "/" (if (> m 9) "" "0") m))))));TODO use format from CLJS
+
+(defn in?
+  "true if seq contains elm"
+  [seq elm]
+  (some #(= elm %) seq))
+
+(def salespersons ["Raising Star" "Good" "Sloppy" "Average"])
+(def regions ["South West" "West" "North West" "South East" "Middle West" "North East"])
+(def items ["Paper" "Pen, Pencils and Markers" "Folders and Binders" "Tape and Glue" "Labels" "Stickers" "Shipping and Mailing" "Planners" "Notebooks and Notepads" "Filling and Organizing"])
+(def customers ["Consumers" "Businesses" "Other" "Personal" "Online"])
+(defn trend [num idx sap reg ite cus]
+  (cond (= "Raising Star" sap)  (int (* (/ idx num) 100))
+        (= "Sloppy" sap) (int (* (/ (- num idx) num) 100))
+        (in? ["Shipping and Mailing" "Paper" "Tape and Glue"] ite)  (int (* (/ idx num) 200))
+        (in? ["Notebooks and Notepads" "Filling and Organizing"] ite) (int (* (/ (- num idx) num) 100))
+        :else (+ 10 (rand-int 5))
+        )
+  )
+(def sales (mapcat identity (for [d (range (count dates))] (for [sp salespersons] [d sp (rand-nth items) (rand-nth regions) (rand-nth customers)]))))
+(def labels ["Month" "Sales Person" "Item" "Region" "Customer" "Quantity"])
+(def rows (->> sales (map #(conj % (apply trend (count dates) %))) (map #(assoc % 0 (dates (first %))))   ))
+(def labels-and-rows (cons labels rows))
+(def categories (->> labels-and-rows first))
+(defn ent[categories data] [(into {} (map vector categories (butlast data))) (last data)])
+(def all-data (map (partial ent categories) (rest labels-and-rows)))
+
+;;
+;;;; interactive
+;;
+
+;;TODO add export to CSV
+
+(def last-cat "Last")
+(defc all-input-stack (list all-data))
+(defc all-pop-stack (list))
+(defc= all-input (first all-input-stack))
+
+(defn count-key[all k] (->> all (map first) (map #(% k)) distinct count))
+
+(defc= all-keys (->> all-input (mapcat #(->> % first keys)) distinct))
+(defc= all-keys-map (into {} (for [k all-keys] [k (count-key all-input k)])))
+(defc= min-val-def (apply min-key all-keys-map all-keys))
+(defc= max-val-def (apply max-key all-keys-map all-keys))
+(defc max-val @max-val-def)
+(defc min-val @min-val-def)
+(defc min-val-use-auto true)
+(defc= all-keys-map-less-max (dissoc all-keys-map max-val))
+(defc= all-keys-less-max (keys all-keys-map-less-max))
+(defc= min-val-auto (if min-val-use-auto (apply min-key all-keys-map-less-max all-keys-less-max) min-val))
+(defc= all-keys-map-less-max-less-min (dissoc all-keys-map-less-max min-val-auto))
+
+(defn do-aggregate-values[rows min-val max-val]
+  (into []
+        (apply merge-with + (map (partial apply hash-map) (for [[k v] rows] [(select-keys k [min-val max-val]) v] ))))
+  )
+
+(defc= aggregated-values (do-aggregate-values all-input min-val max-val))
+(defc= y-categories (->> aggregated-values (map first) (map #(% min-val last-cat)) distinct sort))
+
+(defn make-chart-data[rows min-val max-val]
+  (let [
+        tmp1 (group-by #((first %) max-val) rows)
+        tmp2 (for [[k v] tmp1] (into {} (cons [max-val k] (map (fn[x] [((first x) min-val last-cat) (second x)]) v))))
+        ]
+    (sort-by #(% max-val) tmp2)
+    )
+  )
+
+(defc= chart-data (make-chart-data aggregated-values min-val max-val))
+
+(defn axis-x-options[x]
+  (reset! max-val x)(reset! min-val-use-auto true)
+  (reset! min-val @min-val-auto)
+  );;TODO not sure if @ does not bring side effects of some sort, in fact tgh
+
+(defn axis-y-options[x]
+  (reset! min-val x)
+  (reset! min-val-use-auto false)
+  )
+
+(defn drill-in[x]
+  (let [filtered (filter #(= x ((first %) @min-val)) @all-input)
+        new-input (for [[k v] filtered] [(dissoc k @min-val) v])]
+    (swap! all-input-stack conj new-input)
+    (swap! all-pop-stack conj x)
+    )
+  )
+(defn drill-pop[] (if (next @all-input-stack)
+                    (do
+                      (reset! min-val-use-auto false)
+                      (swap! all-input-stack rest)
+                      (swap! all-pop-stack rest)
+                      )
+                    )
+  ) ;TODO conditional swap?
+
+(html
+ (head
+  (title "SMART-CHART")
+;;TODO where to place amchars JS scripts
+  (script :src "js/amcharts.inc.js")
+  (script :src "js/serial.inc.js")
+  )
+ (body
+
+  (h2 "Smart Chart:")
+  (p "X-axis: " (text max-val) " <- " (span (cell= (map (fn[x] (button :on-click (partial axis-x-options x) x)) (keys all-keys-map-less-max)))))
+  (p "Y-axis: " (text min-val) " <- " (span (cell= (map (fn[x] (button :on-click (partial axis-y-options x) x)) (keys all-keys-map-less-max-less-min)))))
+  (p "Drill-into : " (span (cell= (map (fn[x] (button :on-click (partial drill-in x) x)) (remove (partial = last-cat) y-categories)))));;TODO is there a better way to pass x to the function
+  (p "Pop : " (button :on-click drill-pop (cell= (clojure.string/join ", " all-pop-stack))))
+
+  ;;TODO autoload kills chart
+  (chart :title "Orders" :x-category max-val :y-categories y-categories :value chart-data :style "height:300px")
+
+  (h2 "Input data:")
+  (table :border "1px" :style "border:none;border-collapse:collapse;"
+   (map (fn[x] (tr (map #(td (text %))  x))) labels-and-rows)
+   )
+
+ #_(div (p "debug:")
+       (p "max-val:" (text max-val))
+       (p "min-val:" (text min-val))
+       (p "min-val-auto:" (text min-val-auto))
+       (br)
+       (p "all-keys-less-max:" (text all-keys-less-max))
+       (p "all-keys-map-less-max:" (text all-keys-map-less-max))
+       (p "all-keys-map-less-max-less-min:" (text all-keys-map-less-max-less-min))
+       (br)
+       (p "all-input:" (text all-input))
+       (p "all-input-stack:" (text all-input-stack))
+       (p "all-pop-stack:" (text all-pop-stack))
+       (p "aggregated-values:" (text aggregated-values))
+       (p "chart-data:" (text chart-data))
+       (p "y-categories:" (text y-categories))
+       )
+  )
+ )
