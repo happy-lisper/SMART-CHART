@@ -2,7 +2,7 @@
  :dependencies [
                 '[adzerk/boot-cljs          "0.0-2814-3"]
                 '[adzerk/boot-cljs-repl     "0.1.9"]
-                '[adzerk/boot-reload        "0.2.6"]
+                ;'[adzerk/boot-reload        "0.2.6"]
                 '[tailrecursion/boot-hoplon "0.1.0-SNAPSHOT"]
                 '[tailrecursion/hoplon      "6.0.0-alpha1"]
                 '[pandeiro/boot-http        "0.6.2"]
@@ -13,7 +13,7 @@
 
 (require
   '[adzerk.boot-cljs          :refer [cljs]]
-  '[adzerk.boot-reload        :refer [reload]]
+  ;'[adzerk.boot-reload        :refer [reload]]
   '[adzerk.boot-cljs-repl     :refer [cljs-repl start-repl]]
   '[tailrecursion.boot-hoplon :refer [hoplon prerender]]
   '[pandeiro.boot-http        :refer [serve]])
@@ -24,9 +24,9 @@
   (comp
     (serve)
     (watch)
-    (speak)
+    ;(speak)
     (hoplon)
-    (reload)
+    ;(reload)
     (cljs-repl)
     (cljs)))
 
